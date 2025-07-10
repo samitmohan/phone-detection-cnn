@@ -1,0 +1,3 @@
+[console_scripts]
+detect-phone-mlp = mlp_detector.cli:main
+
