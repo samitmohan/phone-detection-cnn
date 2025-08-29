@@ -1,0 +1,33 @@
+name: "preprocess"
+backend: "python"
+max_batch_size: 4
+
+input [
+  {
+    name: "INPUT_IMAGE"
+    data_type: TYPE_UINT8
+    dims: [ -1 ]
+  }
+]
+
+output [
+  {
+    name: "NORMALIZED_FEATURES"
+    data_type: TYPE_FP32
+    dims: [ 51 ]
+  }
+]
+
+dynamic_batching {
+  preferred_batch_size: [ 1, 2, 4 ]
+  max_queue_delay_microseconds: 500
+}
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_CPU
+  }
+]
+
+version_policy: { all { }}

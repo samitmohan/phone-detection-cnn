@@ -11,3 +11,5 @@ venv_mlp/
 .ipynb_checkpoints
 .DS_Store
 .vscode/
+.claude/
+.venv
