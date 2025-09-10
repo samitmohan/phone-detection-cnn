@@ -1,0 +1,42 @@
+name: "mlp_phone_detector"
+backend: "onnxruntime"
+max_batch_size: 8
+
+input [
+  {
+    name: "input"
+    data_type: TYPE_FP32
+    dims: [ 51 ]
+  }
+]
+
+output [
+  {
+    name: "output"
+    data_type: TYPE_FP32
+    dims: [ 2 ]
+  }
+]
+
+dynamic_batching {
+  preferred_batch_size: [ 4, 8 ]
+  max_queue_delay_microseconds: 100
+}
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_CPU
+  }
+]
+
+version_policy: { all { }}
+
+default_model_filename: "model.onnx"
+
+parameters: {
+  key: "execution_provider"
+  value: {
+    string_value: "CPUExecutionProvider"
+  }
+}

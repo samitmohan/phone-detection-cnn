@@ -1,0 +1,46 @@
+name: "preprocess"
+backend: "python"
+max_batch_size: 4
+
+input [
+  {
+    name: "INPUT_IMAGE"
+    data_type: TYPE_UINT8
+    dims: [ -1 ]
+  }
+]
+
+output [
+  {
+    name: "NORMALIZED_FEATURES"
+    data_type: TYPE_FP32
+    dims: [ 51 ]
+  }
+]
+
+dynamic_batching {
+  preferred_batch_size: [ 1, 2, 4 ]
+  max_queue_delay_microseconds: 500
+}
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_CPU
+  }
+]
+
+parameters: {
+  key: "mmpose_model_name"
+  value: {
+    string_value: "body"
+  }
+}
+
+parameters: {
+  key: "device"
+  value: {
+    string_value: "cpu" # CPU device for MMPose inference (GPU has initialization issues)
+  }
+}
+version_policy: { all { }}

@@ -1,0 +1,12 @@
+# PyTorch and Torchvision (CRITICAL for MMPose)
+# Pinned to match the Triton 23.12-py3 base image
+torch==2.1.0
+torchvision==0.16.0
+
+# Existing dependencies
+opencv-python
+numpy==1.24.3
+Pillow
+termcolor
+addict
+yapf
