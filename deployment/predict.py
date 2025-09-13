@@ -1,19 +1,11 @@
 #!/usr/bin/env python3
 """
-Production Phone Detection Client
-
-A production-ready client for the Phone Detection system using Triton Inference Server.
-Provides a clean Python API for integrating phone detection into applications.
-
 Usage:
     from predict import PhoneDetectionClient
     
     detector = PhoneDetectionClient("localhost:8001")
     result = detector.detect_phone_usage("path/to/image.jpg")
     print(result)  # {"person_id": 0, "is_phone": true, "confidence": 0.8547}
-
-Author: Phone Detection System
-License: MIT
 """
 
 import tritonclient.grpc as grpcclient
@@ -30,13 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 class PhoneDetectionClient:
-    """
-    Production client for phone detection inference via Triton Inference Server.
-    
-    This client provides a simple interface for detecting phone usage in images
-    using gRPC communication with the Triton server.
-    """
-    
     def __init__(self, triton_url: str = "localhost:8001", model_name: str = "ensemble_phone_detection"):
         """
         Initialize connection to Triton server.
@@ -64,12 +49,7 @@ class PhoneDetectionClient:
             raise
     
     def health_check(self) -> Dict:
-        """
-        Check server and model health status.
-        
-        Returns:
-            Dict with server and model status information
-        """
+        """ Returns dict with server and model status information """
         try:
             server_ready = self.client.is_server_ready()
             model_ready = self.client.is_model_ready(self.model_name)
@@ -91,8 +71,7 @@ class PhoneDetectionClient:
                 "error": str(e)
             }
     
-    def detect_phone_usage(self, image_input: Union[str, Path, np.ndarray], 
-                          timeout_seconds: float = 30.0) -> Dict:
+    def detect_phone_usage(self, image_input: Union[str, Path, np.ndarray], timeout_seconds: float = 30.0) -> Dict:
         """
         Detect phone usage in an image.
         
@@ -151,7 +130,7 @@ class PhoneDetectionClient:
             is_phone = response.as_numpy("IS_PHONE")[0]
             confidence = response.as_numpy("CONFIDENCE")[0]
             
-            inference_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+            inference_time = (time.time() - start_time) * 1000  # convert to milliseconds
             
             result = {
                 "person_id": int(person_id),
@@ -260,26 +239,22 @@ def main():
     
     args = parser.parse_args()
     
-    # Initialize client
     try:
         detector = PhoneDetectionClient(args.url)
     except Exception as e:
         print(f"Failed to initialize client: {e}")
         sys.exit(1)
     
-    # Health check
     if args.health:
         health = detector.health_check()
         print(f"Health Check: {health}")
         return
     
-    # Model info
     if args.info:
         info = detector.get_model_info()
         print(f"Model Info: {info}")
         return
     
-    # Single image detection
     if args.image:
         result = detector.detect_phone_usage(args.image)
         print(f"Detection Result: {result}")
@@ -291,15 +266,6 @@ def main():
         for i, result in enumerate(results):
             print(f"Image {i+1}: {result}")
         return
-    
-    # Default: show usage
-    print("Production Phone Detection Client")
-    print("Usage examples:")
-    print("  python predict.py --health")
-    print("  python predict.py --image path/to/image.jpg")
-    print("  python predict.py --batch img1.jpg img2.jpg img3.jpg")
-    print("  python predict.py --info")
-
 
 if __name__ == "__main__":
     main()

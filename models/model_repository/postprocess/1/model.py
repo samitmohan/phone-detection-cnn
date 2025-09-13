@@ -15,54 +15,37 @@ class TritonPythonModel:
     """
 
     def initialize(self, args):
-        """Initialize the postprocessing model."""
-        
         self.model_config = model_config = json.loads(args['model_config'])
         
         # Get input/output configuration
-        input_config = pb_utils.get_input_config_by_name(
-            model_config, "MODEL_OUTPUT")
-        self.input_dtype = pb_utils.triton_string_to_numpy(
-            input_config['data_type'])
+        input_config = pb_utils.get_input_config_by_name(model_config, "MODEL_OUTPUT")
+        self.input_dtype = pb_utils.triton_string_to_numpy(input_config['data_type'])
         
         # Outputs
-        person_id_config = pb_utils.get_output_config_by_name(
-            model_config, "PERSON_ID")
-        self.person_id_dtype = pb_utils.triton_string_to_numpy(
-            person_id_config['data_type'])
+        person_id_config = pb_utils.get_output_config_by_name(model_config, "PERSON_ID")
+        self.person_id_dtype = pb_utils.triton_string_to_numpy(person_id_config['data_type'])
         
-        is_phone_config = pb_utils.get_output_config_by_name(
-            model_config, "IS_PHONE")
-        self.is_phone_dtype = pb_utils.triton_string_to_numpy(
-            is_phone_config['data_type'])
+        is_phone_config = pb_utils.get_output_config_by_name(model_config, "IS_PHONE")
+        self.is_phone_dtype = pb_utils.triton_string_to_numpy(is_phone_config['data_type'])
         
-        confidence_config = pb_utils.get_output_config_by_name(
-            model_config, "CONFIDENCE")
-        self.confidence_dtype = pb_utils.triton_string_to_numpy(
-            confidence_config['data_type'])
+        confidence_config = pb_utils.get_output_config_by_name(model_config, "CONFIDENCE")
+        self.confidence_dtype = pb_utils.triton_string_to_numpy(confidence_config['data_type'])
         
-        # Classification threshold
-        self.confidence_threshold = 0.5
+        self.confidence_threshold = float(self.model_config.get('parameters', {}).get('confidence_threshold', {'string_value': '0.5'})['string_value'])
         
         print("Postprocessing model initialized")
 
     def _softmax(self, x):
         """Apply softmax function to convert logits to probabilities."""
-        # Numerical stability: subtract max value
         exp_x = np.exp(x - np.max(x, axis=-1, keepdims=True))
         return exp_x / np.sum(exp_x, axis=-1, keepdims=True)
 
     def _process_predictions(self, model_outputs):
         """
         Process model outputs to extract predictions.
-        
-        Args:
-            model_outputs: Model logits of shape [batch_size, 2]
-            
-        Returns:
-            tuple: (person_ids, is_phone_flags, confidence_scores)
+        Args: model_outputs: Model logits of shape [batch_size, 2]
+        Returns: (person_ids, is_phone_flags, confidence_scores)
         """
-        # Apply softmax to get probabilities
         probabilities = self._softmax(model_outputs)
         
         # Extract phone class probabilities (class 1)
@@ -90,16 +73,12 @@ class TritonPythonModel:
                 person_ids, is_phone_flags, confidence_scores = self._process_predictions(logits)
                 
                 # Create output tensors
-                person_id_tensor = pb_utils.Tensor("PERSON_ID", 
-                    person_ids.astype(self.person_id_dtype))
+                person_id_tensor = pb_utils.Tensor("PERSON_ID", person_ids.astype(self.person_id_dtype))
                 
-                is_phone_tensor = pb_utils.Tensor("IS_PHONE", 
-                    is_phone_flags.astype(self.is_phone_dtype))
+                is_phone_tensor = pb_utils.Tensor("IS_PHONE", is_phone_flags.astype(self.is_phone_dtype))
                 
-                confidence_tensor = pb_utils.Tensor("CONFIDENCE", 
-                    confidence_scores.astype(self.confidence_dtype))
+                confidence_tensor = pb_utils.Tensor("CONFIDENCE", confidence_scores.astype(self.confidence_dtype))
                 
-                # Create response
                 response = pb_utils.InferenceResponse(
                     output_tensors=[person_id_tensor, is_phone_tensor, confidence_tensor]
                 )
@@ -134,5 +113,4 @@ class TritonPythonModel:
         return responses
 
     def finalize(self):
-        """Clean up resources."""
         print('Postprocessing model done')

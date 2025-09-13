@@ -29,16 +29,84 @@ output [
 ]
 
 ensemble_scheduling {
-  step [
+  step: [
     {
-      model_name: "preprocess"
+      model_name: "preprocess_img"
       model_version: 1
       input_map {
         key: "INPUT_IMAGE"
         value: "INPUT_IMAGE"
       }
       output_map {
-        key: "NORMALIZED_FEATURES"
+        key: "PROCESSED_IMAGE"
+        value: "processed_image"
+      }
+    },
+    {
+      model_name: "rtmdet_detection"
+      model_version: 1
+      input_map {
+        key: "input"
+        value: "processed_image"
+      }
+      output_map {
+        key: "dets"
+        value: "detections"
+      }
+      output_map {
+        key: "labels"
+        value: "detection_labels"
+      }
+    },
+    {
+      model_name: "person_cropper"
+      model_version: 1
+      input_map {
+        key: "image"
+        value: "processed_image"
+      }
+      input_map {
+        key: "dets"
+        value: "detections"
+      }
+      input_map {
+        key: "labels"
+        value: "detection_labels"
+      }
+      output_map {
+        key: "cropped_person"
+        value: "cropped_person"
+      }
+    },
+    {
+      model_name: "rtmpose_estimation"
+      model_version: 1
+      input_map {
+        key: "input"
+        value: "cropped_person"
+      }
+      output_map {
+        key: "simcc_x"
+        value: "pose_x"
+      }
+      output_map {
+        key: "simcc_y"
+        value: "pose_y"
+      }
+    },
+    {
+      model_name: "feature_normalizer"
+      model_version: 1
+      input_map {
+        key: "simcc_x"
+        value: "pose_x"
+      }
+      input_map {
+        key: "simcc_y"
+        value: "pose_y"
+      }
+      output_map {
+        key: "normalized_features"
         value: "normalized_features"
       }
     },

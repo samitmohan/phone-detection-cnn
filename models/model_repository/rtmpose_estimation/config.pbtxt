@@ -1,0 +1,48 @@
+name: "rtmpose_estimation"
+backend: "tensorrt"
+max_batch_size: 4
+
+input [
+  {
+    name: "input"
+    data_type: TYPE_FP32
+    dims: [ 3, 256, 192 ]
+  }
+]
+
+output [
+  {
+    name: "simcc_x"
+    data_type: TYPE_FP32
+    dims: [ 17, 384 ]
+  },
+  {
+    name: "simcc_y"
+    data_type: TYPE_FP32
+    dims: [ 17, 512 ]
+  }
+]
+
+dynamic_batching {
+  preferred_batch_size: [ 1, 2, 4 ]
+  max_queue_delay_microseconds: 100
+}
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_GPU
+    gpus: [0]
+  }
+]
+
+version_policy: { all { }}
+
+parameters: {
+  key: "precision_mode"
+  value: {
+    string_value: "FP16"
+  }
+}
+
+default_model_filename: "model.plan"

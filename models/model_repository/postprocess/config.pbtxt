@@ -40,4 +40,13 @@ instance_group [
   }
 ]
 
+parameters: {
+  key: "confidence_threshold"
+  value: {
+    string_value: "0.7"
+  }
+}
+
 version_policy: { all { }}
+
+default_model_filename: "model.py"

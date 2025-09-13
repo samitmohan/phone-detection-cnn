@@ -1,14 +1,15 @@
 # this is for grpc client
 services:
   triton-server:
-    build: .
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
     container_name: phone-detection
 
-    # Temporarily disable CUDA to test MMPose on CPU
-    runtime: runc
+    # GPU runtime for TensorRT MLP model (CPU preprocessing + GPU TensorRT MLP)
+    runtime: nvidia
     environment:
-      - CUDA_VISIBLE_DEVICES=""
-      - NVIDIA_VISIBLE_DEVICES=""
+      - NVIDIA_VISIBLE_DEVICES=0
 
     ports:
       - "8010:8000"    # HTTP endpoint
@@ -36,15 +37,14 @@ services:
     depends_on:
       - triton-server
     volumes:
-      - .:/workspace
+      - ..:/workspace
     tty: true
     stdin_open: true
     command: /bin/bash
 
-    # Temporarily disable CUDA for testing
-    runtime: runc
+    # Enable GPU support for client testing if needed
+    runtime: nvidia
     environment:
-      - CUDA_VISIBLE_DEVICES=""
-      - NVIDIA_VISIBLE_DEVICES=""
+      - NVIDIA_VISIBLE_DEVICES=all
 
     restart: "no"

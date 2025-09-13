@@ -32,7 +32,7 @@ check_model_repository() {
         exit 1
     fi
 
-    required_models=("preprocess" "mlp_phone_detector" "postprocess" "ensemble_phone_detection")
+    required_models=("preprocess_img" "mlp_phone_detector" "postprocess" "ensemble_phone_detection" "rtmdet_detection" "person_cropper" "rtmpose_estimation" "feature_normalizer")
     for model in "${required_models[@]}"; do
         if [ ! -d "$MODEL_REPO_DIR/$model" ]; then
             echo -e "Missing model: $model"
@@ -94,8 +94,7 @@ start_triton() {
         echo -e "Triton server container started via docker-compose"
     else
         echo "Using docker run to start container..."
-        # Start container
-        docker run --privileged --gpus all -d --rm \
+        docker run --privileged --gpus all -d --rm --it \
             --name $CONTAINER_NAME \
             -p $HTTP_PORT:8000 \
             -p $GRPC_PORT:8001 \
@@ -185,24 +184,24 @@ test_server() {
 # Check that all models are loaded and ready
 verify_models_loaded() {
     echo "Verifying all models are loaded and ready..."
-    
+
     # Wait for logs to show all models loaded
     echo "Waiting for all models to finish loading..."
     TIMEOUT=120
     START_TIME=$(date +%s)
-    
+
     while true; do
         CURRENT_TIME=$(date +%s)
         ELAPSED=$((CURRENT_TIME - START_TIME))
-        
+
         if [ $ELAPSED -gt $TIMEOUT ]; then
             echo -e "Timeout waiting for models to load"
             return 1
         fi
-        
+
         # Check if all required models are loaded
         LOADED_COUNT=$(docker logs $CONTAINER_NAME 2>&1 | grep "successfully loaded" | wc -l)
-        
+
         if [ $LOADED_COUNT -ge 3 ]; then
             echo -e "All 3 models loaded successfully"
             break
@@ -211,7 +210,7 @@ verify_models_loaded() {
             sleep 5
         fi
     done
-    
+
     return 0
 }
 

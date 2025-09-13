@@ -2,7 +2,6 @@
 
 Human Pose Estimation + Multi Layer Perceptron deployed on Triton.
 
-## Quick Start
 
 ```bash
 # Deploy server
@@ -13,7 +12,6 @@ pip install tritonclient[grpc] numpy opencv-python
 python predict.py --url localhost:8011 --image path/to/image.jpg
 ```
 
-## Production Usage
 
 ### Python Integration
 
@@ -51,68 +49,71 @@ python predict.py --url localhost:8011 --batch img1.jpg img2.jpg img3.jpg
 python predict.py --url localhost:8011 --info
 ```
 
-## Table of Contents
+## Results
+```bash
+cv-laptop-1@cv-laptop-1:~/Desktop/samit/triton/phone-detection-cnn-master/deployment$ /usr/bin/python3 predict.py --url localhost:8011 --image test_images/phone.png
+INFO:__main__:Successfully connected to Triton server at localhost:8011
 
-- [System Architecture](#system-architecture)
-- [Requirements](#requirements)
-- [Directory Structure](#directory-structure)
-- [Deployment Methods](#deployment-methods)
-  - [Method 1: Automated Deployment (deploy.sh)](#method-1-automated-deployment-deploysh)
-  - [Method 2: Manual Docker Compose](#method-2-manual-docker-compose)
-  - [Method 3: Manual Docker Commands](#method-3-manual-docker-commands)
-- [Testing and Usage](#testing-and-usage)
-- [deploy.sh Deep Dive](#deploysh-deep-dive)
-- [API Documentation](#api-documentation)
-- [Troubleshooting](#troubleshooting)
-- [Performance Metrics](#performance-metrics)
-- [Development Guide](#development-guide)
+Detection Result: {"person_id": 0, "is_phone": True, "confidence": 0.6212334036827087, "inference_time_ms": 414.24, "status": "success"}
+
+cv-laptop-1@cv-laptop-1:~/Desktop/samit/triton/phone-detection-cnn-master/deployment$ /usr/bin/python3 predict.py --url localhost:8011 --image test_images/nophone3
+INFO:__main__:Successfully connected to Triton server at localhost:8011
+
+Detection Result: {"person_id": 0, "is_phone": False, "confidence": 0.4736001789569855, "inference_time_ms": 302.46, "status": "success"}
+```
 
 ## System Architecture
 
 ### Components Overview
 
 ```
-Image Input → Preprocessing → MLP Classification → Postprocessing → Results
-     ↓             ↓               ↓                 ↓
-  MMPoseInferencer Keypoint      ONNX Runtime     JSON Response
-      (CPU)      Normalization      (CPU)         (gRPC/HTTP)
-     ↓             ↓               ↓                 ↓
-         Triton Server with Dynamic Batching (CPU Optimized)
+Image Input → preprocess_img → rtmdet_detection → person_cropper → rtmpose_estimation → feature_normalizer → mlp_phone_detector → postprocess → Results
+     ↓              ↓                 ↓                 ↓                  ↓                     ↓                     ↓                  ↓
+  Raw Image     Image Resize/     Person BBox       Pose Keypoints     Normalized Pose       Phone/No-Phone        Formatted JSON     Final
+  (UINT8)       Normalization     (x1,y1,x2,y2)     (simcc_x, simcc_y)  Features (51-dim)     Logits (2-dim)        Response           Output
+     ↓              ↓                 ↓                 ↓                  ↓                     ↓                     ↓                  ↓
+                                                                Triton Inference Server Ensemble
 ```
 
-**1. Preprocessing Module (Python Backend)**
-- MMPoseInferencer with RTMPose models for human pose estimation
-- Extracts 17 COCO keypoints from human subjects using RTMDet person detection
-- Normalizes keypoints relative to body scale and position
-- Generates 51-dimensional feature vector
+**1. `preprocess_img` (Python Backend)**
+- Resizes and normalizes input images (e.g., to 640x640) for the RTMDet model.
+- Converts image format (BGR to RGB) and transposes dimensions.
 
-**2. MLP Classification Model (ONNX)**
-- Multi-Layer Perceptron: [51] → [128] → [64] → [2]
-- ReLU activation with 0.2 dropout
-- Binary classification (phone/no-phone)
-- CPU inference via ONNX Runtime
+**2. `rtmdet_detection` (ONNX Model)**
+- Performs object detection (likely for persons) on the preprocessed image.
+- Outputs bounding box detections (`dets`) and corresponding labels (`labels`).
 
-**3. Postprocessing Module (Python Backend)**
-- Applies softmax to model logits
-- Confidence thresholding (0.5)
-- Formats structured JSON responses
+**3. `person_cropper` (Python Backend)**
+- Takes the original preprocessed image and the detections from `rtmdet_detection`.
+- Crops the image to focus on the detected person (assuming person class 0).
+- Resizes the cropped person image to a standard size (e.g., 192x256) for pose estimation.
 
-**4. Ensemble Pipeline**
-- Triton ensemble model orchestrating the pipeline
-- Automatic batching and parallel processing
-- Multiple protocol support (gRPC/HTTP)
+**4. `rtmpose_estimation` (TensorRT/ONNX Model)**
+- Estimates 17 COCO keypoints for the cropped person image.
+- Outputs pose estimation results in SIMCC format (`simcc_x`, `simcc_y`).
 
-## Requirements
+**5. `feature_normalizer` (Python Backend)**
+- Converts SIMCC outputs from `rtmpose_estimation` into normalized (x,y) keypoint coordinates.
+- Extracts additional geometric features (e.g., body width, height, aspect ratio) from the keypoints.
+- Generates a 51-dimensional feature vector for the MLP classifier.
 
-### Dependencies
-- Docker 24.0+
-- Python 3.8+ (for client)
-- System RAM: 4GB+ recommended
+**6. `mlp_phone_detector` (ONNX Model)**
+- A Multi-Layer Perceptron (MLP) model.
+- Takes the 51-dimensional normalized pose features as input.
+- Performs binary classification (phone/no-phone) based on the pose.
+- CPU inference via ONNX Runtime.
 
-### Optional (for GPU optimization)
-- NVIDIA Container Toolkit
-- CUDA 12.8+ drivers
-- GPU with 4GB+ VRAM
+**7. `postprocess` (Python Backend)**
+- Applies softmax to the raw logits from `mlp_phone_detector` to get probabilities.
+- Applies a confidence threshold (0.5) to determine the final classification.
+- Formats the results into a structured JSON response, including `person_id`, `is_phone`, and `confidence`.
+
+**8. Ensemble Pipeline**
+- The entire process is orchestrated by a Triton ensemble model (`ensemble_phone_detection`).
+- Manages the sequential execution and data flow between all the individual models.
+- Supports automatic batching and parallel processing.
+- Provides multiple protocol support (gRPC/HTTP) for client interaction.
+
 
 ## Directory Structure
 
@@ -348,12 +349,12 @@ gRPC Performance Results:
 
 
 ### Working Features
-- ✅ Human pose detection using RTMPose (RTMDet + RTMPose-m)
-- ✅ Phone usage classification with realistic confidence scores
-- ✅ Batch processing support (1-4 images)
-- ✅ gRPC and HTTP API endpoints
-- ✅ Health monitoring and status checks
-- ✅ Automated deployment with error handling
+- Human pose detection using RTMPose (RTMDet + RTMPose-m)
+- Phone usage classification with realistic confidence scores
+- Batch processing support (1-4 images)
+- gRPC and HTTP API endpoints
+- Health monitoring and status checks
+- Automated deployment with error handling
 
 ### Known Limitations
 - **Latency**: ~400ms inference time (CPU bottleneck)

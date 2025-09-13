@@ -1,5 +1,6 @@
 name: "mlp_phone_detector"
-backend: "onnxruntime"
+# this might cause error since tensort fp 16 conversion loses model weights and produces bad output backendd "tensorrt"
+platform: "onnxruntime_onnx"
 max_batch_size: 8
 
 input [
@@ -27,6 +28,7 @@ instance_group [
   {
     count: 1
     kind: KIND_CPU
+    #gpus: [0]
   }
 ]
 
@@ -34,9 +36,3 @@ version_policy: { all { }}
 
 default_model_filename: "model.onnx"
 
-parameters: {
-  key: "execution_provider"
-  value: {
-    string_value: "CPUExecutionProvider"
-  }
-}

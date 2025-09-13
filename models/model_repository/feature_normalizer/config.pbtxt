@@ -1,0 +1,40 @@
+name: "feature_normalizer"
+backend: "python"
+max_batch_size: 4
+
+input [
+  {
+    name: "simcc_x"
+    data_type: TYPE_FP32
+    dims: [ 17, 384 ]
+  },
+  {
+    name: "simcc_y" 
+    data_type: TYPE_FP32
+    dims: [ 17, 512 ]
+  }
+]
+
+output [
+  {
+    name: "normalized_features"
+    data_type: TYPE_FP32
+    dims: [ 51 ]
+  }
+]
+
+dynamic_batching {
+  preferred_batch_size: [ 1, 2, 4 ]
+  max_queue_delay_microseconds: 100
+}
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_CPU
+  }
+]
+
+version_policy: { all { }}
+
+

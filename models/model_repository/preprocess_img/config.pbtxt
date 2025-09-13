@@ -1,0 +1,35 @@
+name: "preprocess_img"
+  backend: "python"
+  max_batch_size: 4
+
+  input [
+    {
+      name: "INPUT_IMAGE"
+      data_type: TYPE_UINT8
+      dims: [ -1 ]
+    }
+  ]
+
+  output [
+    {
+      name: "PROCESSED_IMAGE"
+      data_type: TYPE_FP32
+      dims: [ 1, 3, 640, 640 ]
+    }
+  ]
+
+  dynamic_batching {
+    preferred_batch_size: [ 1, 2, 4 ]
+    max_queue_delay_microseconds: 100
+  }
+
+  instance_group [
+    {
+      count: 1
+      kind: KIND_CPU
+    }
+  ]
+
+version_policy: { all { }}
+
+default_model_filename: "model.py"
